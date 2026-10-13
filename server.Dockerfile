@@ -17,6 +17,7 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm run build:server
 
 ENV NODE_ENV=production
+ENV DATABASE_URL=file:/data/hbmp.db
 EXPOSE 8080
 ENV PORT=8080
 

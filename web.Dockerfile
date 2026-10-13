@@ -12,8 +12,8 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
-ARG NEXT_PUBLIC_SERVER_URL=https://mxgraph-reactflow.zeabur.app
-ARG SERVER_URL=https://mxgraph-reactflow.zeabur.app
+ARG NEXT_PUBLIC_SERVER_URL
+ARG SERVER_URL
 ENV NEXT_PUBLIC_SERVER_URL=$NEXT_PUBLIC_SERVER_URL
 ENV SERVER_URL=$SERVER_URL
 ENV NODE_ENV=production
