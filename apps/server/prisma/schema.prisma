@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  diagrams  Diagram[]
+
+  @@map("projects")
+}
+
+model Diagram {
+  id            String   @id @default(cuid())
+  projectId     String
+  name          String
+  kind          String   // "process", "lineage", "dashboard", "app-arch"
+  version       Int      @default(1)
+  status        String   // "draft" | "published"
+  rfJson        Json     // React Flow snapshot for quick reloads
+  mxXml         Bytes    // Authoritative mxGraph XML (UTF-8 bytes)
+  mermaid       String?  // optional cached DSL
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exports       ExportArtifact[]
+  auditTrail    AuditEvent[]
+  nodePositions NodePosition[]
+  swimlaneLayouts SwimlaneLayout[]
+  flowExecutions FlowExecution[]
+
+  @@index([projectId])
+  @@map("diagrams")
+}
+
+model ExportArtifact {
+  id            String   @id @default(cuid())
+  diagramId     String
+  kind          String   // "svg" | "png" | "pdf" | "thumb"
+  contentType   String
+  bytes         Bytes
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  diagram       Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  @@index([diagramId])
+  @@map("export_artifacts")
+}
+
+model AuditEvent {
+  id            String   @id @default(cuid())
+  diagramId     String
+  actor         String   // user id/email
+  action        String   // "create" | "update" | "connect" | "delete" | "validate" | "layout" | "export" | "publish"
+  payload       Json
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  diagram       Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  @@index([diagramId])
+  @@index([actor])
+  @@index([action])
+  @@map("audit_events")
+}
+
+model NodePosition {
+  id            String   @id @default(cuid())
+  diagramId     String
+  nodeId        String   // React Flow node ID
+  x             Float
+  y             Float
+  width         Float?
+  height        Float?
+  parentNodeId  String?  // For swimlane relationships
+  layoutType    String   // "auto" | "manual" | "swimlane"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  diagram       Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  @@unique([diagramId, nodeId])
+  @@index([diagramId])
+  @@index([parentNodeId])
+  @@map("node_positions")
+}
+
+model SwimlaneLayout {
+  id            String   @id @default(cuid())
+  diagramId     String
+  laneId        String   // Swimlane node ID
+  title         String
+  x             Float
+  y             Float
+  width         Float
+  height        Float
+  order         Int      // Order of lanes
+  nodeSpacing   Float    @default(120) // Spacing between nodes in lane
+  paddingX      Float    @default(20)  // Horizontal padding
+  paddingY      Float    @default(40)  // Vertical padding
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  diagram       Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  @@unique([diagramId, laneId])
+  @@index([diagramId])
+  @@map("swimlane_layouts")
+}
+
+model FlowExecution {
+  id            String   @id @default(cuid())
+  diagramId     String
+  executionId   String   @unique
+  status        String   // "running" | "completed" | "failed"
+  inputData     Json
+  outputData    Json?
+  logs          Json     // Array of log entries
+  duration      Int?     // Execution time in ms
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  diagram       Diagram @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+
+  @@index([diagramId])
+  @@index([status])
+  @@map("flow_executions")
+}
+
+// Network Modeling Tables
+model NodePositionNetwork {
+  id            String   @id @default(cuid())
+  diagramId     String
+  nodeId        String
+  x             Float
+  y             Float
+  fx            Float?   // Fixed x (pinned)
+  fy            Float?   // Fixed y (pinned)
+  isPinned      Boolean  @default(false)
+  degree        Int      @default(0)
+  influenceScore Float   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([diagramId, nodeId])
+  @@index([diagramId])
+  @@map("node_positions_network")
+}
+
+model ClusterMembership {
+  id            String   @id @default(cuid())
+  diagramId     String
+  nodeId        String
+  clusterId     String
+  clusterSize   Int
+  density       Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([diagramId, nodeId])
+  @@index([diagramId])
+  @@index([clusterId])
+  @@map("cluster_memberships")
+}
+
+model NetworkAnalysisSession {
+  id            String   @id @default(cuid())
+  diagramId     String
+  analysisType  String   // "topology" | "clustering" | "pathfinding"
+  results       Json     // Analysis results
+  metrics       Json     // Graph metrics
+  duration      Int      // Analysis time in ms
+  createdAt     DateTime @default(now())
+  
+  @@index([diagramId])
+  @@index([analysisType])
+  @@map("network_analysis_sessions")
+}
+
+model SimulationConfig {
+  id            String   @id @default(cuid())
+  diagramId     String   @unique
+  repulsion     Float    @default(-300)
+  gravity       Float    @default(0.1)
+  linkStrength  Float    @default(0.5)
+  collisionRadius Float  @default(50)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([diagramId])
+  @@map("simulation_configs")
+}

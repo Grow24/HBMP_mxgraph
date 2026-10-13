@@ -1,0 +1,16 @@
+flow-builder
+Dockerfile.flow-web
+Dockerfile.flow-server
+zbpack.flow-web.json
+zbpack.flow-server.json
+**/node_modules
+**/.git
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.db
+**/*.db-journal
+**/.next
+**/dist
+**/coverage
+**/*.log

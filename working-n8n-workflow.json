@@ -1,0 +1,240 @@
+{
+  "name": "Customer Feedback Automation - Working Demo",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "customer-feedback",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Receive Customer Feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.rating }}",
+              "operation": "largerEqual",
+              "value2": 4
+            }
+          ]
+        }
+      },
+      "id": "if-1",
+      "name": "Check Rating",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "positive"
+            },
+            {
+              "name": "message",
+              "value": "Thank you {{ $json.customer }} for your positive feedback!"
+            },
+            {
+              "name": "action",
+              "value": "send_thank_you_email"
+            },
+            {
+              "name": "priority",
+              "value": "normal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-positive",
+      "name": "Positive Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "negative"
+            },
+            {
+              "name": "message",
+              "value": "We're sorry {{ $json.customer }}. A manager will contact you within 24 hours."
+            },
+            {
+              "name": "action",
+              "value": "alert_manager"
+            },
+            {
+              "name": "priority",
+              "value": "high"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-negative",
+      "name": "Negative Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://webhook.site/22dfafb6-6ffd-4596-8b68-9c66825174c6",
+        "options": {
+          "response": {
+            "response": {
+              "responseCode": 200
+            }
+          }
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "customer",
+              "value": "={{ $json.customer }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "action",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "name": "priority",
+              "value": "={{ $json.priority }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "id": "http-1",
+      "name": "Log to Webhook.site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "final_status",
+              "value": "completed"
+            },
+            {
+              "name": "workflow_result",
+              "value": "Customer feedback processed successfully"
+            },
+            {
+              "name": "customer_name",
+              "value": "={{ $json.customer }}"
+            },
+            {
+              "name": "response_sent",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-final",
+      "name": "Final Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Receive Customer Feedback": {
+      "main": [
+        [
+          {
+            "node": "Check Rating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Rating": {
+      "main": [
+        [
+          {
+            "node": "Positive Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Negative Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Positive Response": {
+      "main": [
+        [
+          {
+            "node": "Log to Webhook.site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Negative Response": {
+      "main": [
+        [
+          {
+            "node": "Log to Webhook.site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Webhook.site": {
+      "main": [
+        [
+          {
+            "node": "Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
