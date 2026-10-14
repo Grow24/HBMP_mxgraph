@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ReactFlowProvider } from 'reactflow'
 import { DiagramEditor } from '@/components/DiagramEditor'
@@ -30,6 +30,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editorRevision, setEditorRevision] = useState(0)
+  const saveSeq = useRef(0)
 
   // Load diagram on mount
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   }
 
   const saveDiagram = async (updatedGraph: RFGraph) => {
+    const requestId = ++saveSeq.current
     try {
       setIsSaving(true)
       await api('/api/diagrams/save', {
@@ -69,11 +71,11 @@ export default function DiagramPage({ params }: DiagramPageProps) {
           rf: updatedGraph,
         }),
       })
-      setGraph(updatedGraph)
+      if (requestId !== saveSeq.current) return
     } catch (error) {
       console.error('Error saving diagram:', error)
     } finally {
-      setIsSaving(false)
+      if (requestId === saveSeq.current) setIsSaving(false)
     }
   }
 

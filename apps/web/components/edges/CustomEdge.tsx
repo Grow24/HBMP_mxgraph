@@ -27,7 +27,8 @@ export const CustomEdge = memo(({
   data,
   markerEnd,
 }: EdgeProps<CustomEdgeData>) => {
-  const { label, validationIssues = [] } = data || {}
+  const { label, relation, validationIssues = [] } = data || {}
+  const caption = [label, relation].filter(Boolean).join(' · ')
 
   const hasErrors = validationIssues.some(issue => issue.level === 'error')
   const hasWarnings = validationIssues.some(issue => issue.level === 'warn')
@@ -54,7 +55,7 @@ export const CustomEdge = memo(({
         markerEnd={markerEnd} 
         style={edgeStyle}
       />
-      {label && (
+      {caption && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -73,7 +74,7 @@ export const CustomEdge = memo(({
                   'border-gray-300 text-gray-700'}
               `}
             >
-              {label}
+              {caption}
               {validationIssues.length > 0 && (
                 <span className="ml-1 text-xs">
                   {hasErrors ? '⚠️' : '⚠'}

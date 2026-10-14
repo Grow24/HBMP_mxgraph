@@ -118,7 +118,24 @@ export function DiagramEditor({
         }
       }) as Node[]
     )
-  }, [editorRevision, setNodes])
+    setEdges((current) => {
+      const next = graph.edges.map((edge) => {
+        const existing = current.find((item) => item.id === edge.id)
+        const data = (edge.data || {}) as { label?: string; relation?: string }
+        const label = String(edge.label || data.label || '')
+        return {
+          ...existing,
+          ...edge,
+          type: 'customEdge',
+          label,
+          selected: existing?.selected ?? false,
+          data: { ...data, label },
+        }
+      })
+      edgesRef.current = next
+      return next
+    })
+  }, [editorRevision, setNodes, setEdges])
   
   const { validateConnection, prepareConnection } = useConnectionValidation()
 
@@ -319,6 +336,7 @@ export function DiagramEditor({
   // Update parent component when nodes or edges change
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     onNodesChange(changes)
+    if (changes.every((change) => change.type === 'select')) return
     const finishedResize = changes.filter(
       (change) => change.type === 'dimensions' && change.resizing === false && change.dimensions
     )
@@ -364,6 +382,7 @@ export function DiagramEditor({
 
   const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
     onEdgesChange(changes)
+    if (changes.every((change) => change.type === 'select')) return
     // Update parent with new graph data after a short delay to batch changes
     setTimeout(() => {
       const updatedGraph: RFGraph = {

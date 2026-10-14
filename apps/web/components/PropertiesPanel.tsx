@@ -68,9 +68,10 @@ export function PropertiesPanel({
     const updatedEdges = graph.edges.map(edge => {
       if (edge.id === edgeId) {
         return property === 'label'
-          ? { ...edge, label: value, data: { ...edge.data, label: value } }
+          ? { ...edge, type: 'customEdge', label: value, data: { ...edge.data, label: value } }
           : {
               ...edge,
+              type: 'customEdge',
               data: {
                 ...edge.data,
                 [property]: value
@@ -80,8 +81,24 @@ export function PropertiesPanel({
       return edge
     })
 
+    const editedEdge = updatedEdges.find((edge) => edge.id === edgeId)
+    const updatedNodes = property === 'relation' && editedEdge
+      ? graph.nodes.map((node) => {
+          if (node.id !== editedEdge.source || node.type !== 'gateway') return node
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              condition: value,
+              conditionType: value ? 'expression' : node.data?.conditionType,
+            },
+          }
+        })
+      : graph.nodes
+
     onChange({
       ...graph,
+      nodes: updatedNodes,
       edges: updatedEdges
     })
   }
