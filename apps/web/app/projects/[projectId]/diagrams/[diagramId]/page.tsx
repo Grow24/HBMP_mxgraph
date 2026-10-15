@@ -30,6 +30,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editorRevision, setEditorRevision] = useState(0)
+  const [viewportRevision, setViewportRevision] = useState(0)
   const saveSeq = useRef(0)
 
   // Load diagram on mount
@@ -49,6 +50,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
       setDiagramStatus(data.meta?.status || 'draft')
       setDiagramKind(data.meta?.kind || 'process')
       setValidationIssues([])
+      setEditorRevision((revision) => revision + 1)
+      setViewportRevision((revision) => revision + 1)
     } catch (error) {
       console.error('Error loading diagram:', error)
     } finally {
@@ -128,6 +131,8 @@ export default function DiagramPage({ params }: DiagramPageProps) {
         }),
       })
       setGraph(data.graph)
+      setEditorRevision((revision) => revision + 1)
+      setViewportRevision((revision) => revision + 1)
       await saveDiagram(data.graph)
     } catch (error) {
       console.error('Error applying layout:', error)
@@ -211,6 +216,7 @@ export default function DiagramPage({ params }: DiagramPageProps) {
               graph={graph}
               validationIssues={validationIssues}
               editorRevision={editorRevision}
+              viewportRevision={viewportRevision}
               onChange={handleGraphChange}
               onSelectionChange={(nodeId, edgeId) => {
                 setSelectedNodeId(nodeId)

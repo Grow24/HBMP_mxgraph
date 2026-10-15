@@ -389,6 +389,7 @@ function PrototypePageContent() {
     variables: {},
     logs: []
   });
+  const [executionMessage, setExecutionMessage] = useState('');
   const [serverDiagramId, setServerDiagramId] = useState<string | null>(null);
   const [layoutStatus, setLayoutStatus] = useState('');
   const canvasRef = useRef<{ projectId: string; diagramId: string } | null>(null);
@@ -438,29 +439,63 @@ function PrototypePageContent() {
   }, [selectedNode, updateNode]);
 
   const executeFlow = useCallback(async () => {
+    setExecutionMessage('Running the shapes on this canvas...');
     flowExecutionEngine.setStateCallback(setFlowExecution);
     try {
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        setLayoutStatus('Backend diagram is not ready yet');
-        return;
-      }
+      await flowExecutionEngine.executeFlow(nodes, edges, { startTime: Date.now() });
+      setExecutionMessage('Flow finished. The step list is at the bottom-right.');
+    } catch (error) {
+      console.error('Flow execution error:', error);
+      const message = error instanceof Error ? error.message : 'Execute Flow failed';
+      setExecutionMessage(message);
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      setExecutionMessage((current) => `${current} This run stayed on the canvas.`);
+      return;
+    }
+    try {
       await persistLayout(canvas.diagramId, nodes, edges, layoutOptions);
       const result = await api<{ executionId: string }>(`/api/flows/${canvas.diagramId}/execute`, {
         method: 'POST',
         body: JSON.stringify({ inputData: { startTime: Date.now() }, executionMode: 'test' }),
       });
-      setLayoutStatus(`Execution saved (${result.executionId})`);
-      await flowExecutionEngine.executeFlow(nodes, edges, { startTime: Date.now() });
+      setExecutionMessage((current) => `${current} Saved as ${result.executionId}.`);
     } catch (error) {
-      console.error('Flow execution error:', error);
-      setLayoutStatus('Execute Flow could not reach the backend');
+      console.error('Flow execution save error:', error);
+      setExecutionMessage((current) => `${current} The run was not saved to the backend.`);
     }
   }, [nodes, edges, layoutOptions]);
 
   const stopFlowExecution = useCallback(() => {
     flowExecutionEngine.stopExecution();
+    setExecutionMessage('Flow execution stopped.');
   }, []);
+
+  useEffect(() => {
+    const activeId = flowExecution.isRunning
+      ? flowExecution.steps.find((step) => step.status === 'running')?.nodeId
+      : undefined;
+    setNodes((current) => {
+      let changed = false;
+      const next = current.map((node) => {
+        const highlighted = node.id === activeId;
+        const already = node.style?.outline === '3px solid #2563eb';
+        if (highlighted === already) return node;
+        changed = true;
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            outline: highlighted ? '3px solid #2563eb' : undefined,
+            outlineOffset: highlighted ? '4px' : undefined,
+          },
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [flowExecution, setNodes]);
 
   // Drag and Drop handlers
   const onDragStart = useCallback((event: DragEvent, nodeType: string) => {
@@ -1505,6 +1540,14 @@ function PrototypePageContent() {
                 ⏹️
               </button>
             </div>
+            {executionMessage && (
+              <p className="text-xs text-green-800 mt-2">{executionMessage}</p>
+            )}
+            {flowExecution.isRunning && (
+              <p className="text-xs text-blue-800 mt-1">
+                Running: {flowExecution.steps.find((step) => step.status === 'running')?.label || 'starting'}
+              </p>
+            )}
           </div>
 
           {/* n8n Integration Panel */}

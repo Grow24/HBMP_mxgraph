@@ -69,6 +69,7 @@ interface DiagramEditorProps {
   graph: RFGraph
   validationIssues: ValidationIssue[]
   editorRevision: number
+  viewportRevision: number
   onChange: (graph: RFGraph) => void
   onSelectionChange: (nodeId: string | null, edgeId: string | null) => void
 }
@@ -90,6 +91,7 @@ export function DiagramEditor({
   graph,
   validationIssues,
   editorRevision,
+  viewportRevision,
   onChange,
   onSelectionChange,
 }: DiagramEditorProps) {
@@ -136,6 +138,13 @@ export function DiagramEditor({
       return next
     })
   }, [editorRevision, setNodes, setEdges])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      reactFlowInstance?.fitView({ padding: 0.2, duration: 300 })
+    }, 60)
+    return () => window.clearTimeout(timer)
+  }, [viewportRevision, reactFlowInstance])
   
   const { validateConnection, prepareConnection } = useConnectionValidation()
 

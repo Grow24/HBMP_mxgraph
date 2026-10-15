@@ -28,6 +28,7 @@ export class FlowExecutionEngine {
   };
 
   private stateCallback?: (state: FlowExecutionState) => void;
+  private visited = new Set<string>();
 
   setStateCallback(callback: (state: FlowExecutionState) => void) {
     this.stateCallback = callback;
@@ -39,11 +40,26 @@ export class FlowExecutionEngine {
   }
 
   async executeFlow(nodes: Node[], edges: Edge[], inputData: Record<string, any> = {}) {
-    const startNode = nodes.find(n => n.type === 'flowStart');
-    if (!startNode) {
-      throw new Error('No start node found');
+    const startNodes = this.findStartNodes(nodes, edges);
+    if (startNodes.length === 0) {
+      this.updateState({
+        isRunning: false,
+        currentStep: 0,
+        steps: [{
+          nodeId: 'none',
+          nodeType: 'none',
+          label: 'No shape to run',
+          status: 'error',
+          error: 'Add a shape on the canvas, then click Execute Flow again.',
+          timestamp: Date.now()
+        }],
+        variables: { ...inputData },
+        logs: ['Execute Flow found no shape to run']
+      });
+      return;
     }
 
+    this.visited = new Set();
     this.updateState({
       isRunning: true,
       currentStep: 0,
@@ -53,7 +69,9 @@ export class FlowExecutionEngine {
     });
 
     try {
-      await this.executeNode(startNode, nodes, edges);
+      for (const startNode of startNodes) {
+        await this.executeNode(startNode, nodes, edges);
+      }
       this.updateState({ isRunning: false, logs: [...this.state.logs, 'Flow execution completed'] });
     } catch (error) {
       this.updateState({ 
@@ -64,7 +82,29 @@ export class FlowExecutionEngine {
     }
   }
 
+  private findStartNodes(nodes: Node[], edges: Edge[]): Node[] {
+    const runnable = nodes.filter((node) => node.type !== 'lane');
+    const flowStarts = runnable.filter((node) => node.type === 'flowStart');
+    if (flowStarts.length > 0) return flowStarts;
+
+    const namedStarts = runnable.filter((node) => {
+      const label = String(node.data?.label || '').toLowerCase();
+      return node.type === 'event' && label.includes('start');
+    });
+    if (namedStarts.length > 0) return namedStarts;
+
+    const incoming = new Set(edges.map((edge) => edge.target));
+    const roots = runnable.filter((node) => !incoming.has(node.id));
+    const connectedRoots = roots.filter((node) => edges.some((edge) => edge.source === node.id));
+    if (connectedRoots.length > 0) return connectedRoots;
+    if (roots.length > 0) return roots;
+    return runnable.slice(0, 1);
+  }
+
   private async executeNode(node: Node, nodes: Node[], edges: Edge[]) {
+    if (this.visited.has(node.id)) return;
+    this.visited.add(node.id);
+
     const step: FlowExecutionStep = {
       nodeId: node.id,
       nodeType: node.type || 'unknown',

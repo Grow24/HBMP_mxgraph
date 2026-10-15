@@ -32,7 +32,7 @@ export function layoutGraph(graph: RFGraph, options: LayoutOptions = {}): RFGrap
     algorithm = 'hierarchical',
     orientation = 'LR',
     laneAware = true,
-    spacing = { node: 80, rank: 120, lane: 250 },
+    spacing = { node: 150, rank: 280, lane: 320 },
     edgeRouting = true
   } = options;
   
@@ -44,7 +44,7 @@ export function layoutGraph(graph: RFGraph, options: LayoutOptions = {}): RFGrap
   };
   
   if (laneAware) {
-    layoutGraph.nodes = applyLaneAwareLayout(layoutGraph.nodes, algorithm, orientation, spacing);
+    layoutGraph.nodes = applyLaneAwareLayout(layoutGraph.nodes, layoutGraph.edges, algorithm, orientation, spacing);
   } else {
     layoutGraph.nodes = applyGlobalLayout(layoutGraph.nodes, layoutGraph.edges, algorithm, orientation, spacing);
   }
@@ -60,13 +60,32 @@ export function layoutGraph(graph: RFGraph, options: LayoutOptions = {}): RFGrap
 /**
  * Apply lane-aware layout (layout within each lane separately)
  */
+function nodeInsideLane(node: any, lane: any) {
+  const width = Number(node.data?.width || node.style?.width || 160)
+  const height = Number(node.data?.height || node.style?.height || 80)
+  const laneWidth = Number(lane.data?.width || lane.style?.width || 900)
+  const laneHeight = Number(lane.data?.height || lane.style?.height || 260)
+  const centerX = node.position.x + width / 2
+  const centerY = node.position.y + height / 2
+  return centerX >= lane.position.x &&
+    centerX <= lane.position.x + laneWidth &&
+    centerY >= lane.position.y &&
+    centerY <= lane.position.y + laneHeight
+}
+
 function applyLaneAwareLayout(
-  nodes: any[], 
-  algorithm: LayoutAlgorithm, 
-  orientation: string, 
+  nodes: any[],
+  edges: any[],
+  algorithm: LayoutAlgorithm,
+  orientation: string,
   spacing: any
 ): any[] {
   const laneNodes = nodes.filter(node => node.type === 'lane');
+  for (const node of nodes) {
+    if (node.type === 'lane' || node.data?.laneId) continue
+    const lane = laneNodes.find((item) => nodeInsideLane(node, item))
+    if (lane) node.data = { ...node.data, laneId: lane.id }
+  }
   const regularNodes = nodes.filter(node => node.type !== 'lane');
   const updatedNodes = [...nodes];
   
@@ -85,8 +104,10 @@ function applyLaneAwareLayout(
   
   // Then layout nodes within each lane
   for (const lane of laneNodes) {
-    const laneChildren = regularNodes.filter(node => node.data.laneId === lane.id);
-    const laidOutChildren = applyAlgorithmToNodes(laneChildren, [], algorithm, orientation, spacing);
+    const laneChildren = regularNodes.filter(node => node.data?.laneId === lane.id);
+    const childIds = new Set(laneChildren.map(node => node.id));
+    const childEdges = edges.filter(edge => childIds.has(edge.source) && childIds.has(edge.target));
+    const laidOutChildren = applyAlgorithmToNodes(laneChildren, childEdges, algorithm, orientation, spacing);
     
     // Offset positions relative to lane
     laidOutChildren.forEach(child => {
@@ -101,9 +122,11 @@ function applyLaneAwareLayout(
   }
   
   // Layout orphaned nodes (not in any lane)
-  const orphanedNodes = regularNodes.filter(node => !node.data.laneId);
+  const orphanedNodes = regularNodes.filter(node => !node.data?.laneId);
   if (orphanedNodes.length > 0) {
-    const laidOutOrphans = applyAlgorithmToNodes(orphanedNodes, [], algorithm, orientation, spacing);
+    const orphanIds = new Set(orphanedNodes.map(node => node.id));
+    const orphanEdges = edges.filter(edge => orphanIds.has(edge.source) && orphanIds.has(edge.target));
+    const laidOutOrphans = applyAlgorithmToNodes(orphanedNodes, orphanEdges, algorithm, orientation, spacing);
     
     laidOutOrphans.forEach(orphan => {
       const nodeIndex = updatedNodes.findIndex(n => n.id === orphan.id);

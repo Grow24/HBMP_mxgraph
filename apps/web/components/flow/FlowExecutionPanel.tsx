@@ -8,7 +8,7 @@ type FlowExecutionPanelProps = {
 };
 
 export function FlowExecutionPanel({ executionState }: FlowExecutionPanelProps) {
-  if (!executionState.isRunning && executionState.steps.length === 0) {
+  if (!executionState.isRunning && executionState.steps.length === 0 && executionState.logs.length === 0) {
     return null;
   }
 
